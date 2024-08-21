@@ -1,0 +1,510 @@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+#########################################File_Search##########################################################
+## Find All Files Recursively
+```
+get-childitem -force -recurse -erroraction SilentlyContinue | Select Mode, LastWriteTime, Fullname
+```
+## Find Files with ADS
+```
+Get-Childitem -path C:\Users\CTF -force -recurse -ErrorAction 'silentlycontinue' | ForEach-Object {Get-Item $_.fullname -Stream * | Where-Object {$_.stream -cnotmatch '.*DATA.*'} } 2>$null
+```
+## Find Hidden Files
+```
+Get-Childitem -Path C:\Users\CTF -Recurse -hidden 2>$null
+```
+
+## Search by Filename
+```
+Get-Childitem -Path C:\Users\CTF -Force -Recurse -Include '*key*' 2>$null
+```
+## Search by Contents
+```
+Get-Childitem -path C:\Users\CTF -force -recurse -ErrorAction 'silentlycontinue' | ForEach-Object {Get-Content $_.fullname | Where-Object {$_.stream -cmatch '.*SEARCH_KEY.*'} } 2>$null
+```
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+###########################################Logging_and_Security#######################################
+# Log locations
+### Commands to know
+- cmd syntax:
+```
+reg query "<key>"
+```
+- powershell syntax: 
+```
+Get-ChildItem "<key>"
+```
+- sysinternals syntax: 
+```
+strings <searchfile> -accepteula
+```
+## User Assist
+Used for file and shortcut access history
+```
+HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\UserAssist\<GUID>\Count\
+
+HKEY_USERS\<SID>\Software\Microsoft\Windows\CurrentVersion\Explorer\UserAssist\<GUID>\Count\
+```
+```
+CEBFF5CD-ACE2-4F4F-9178-9926F41749EA # GUID to search for accessed applications and files
+
+F4E57C4B-2036-45F0-A9AB-443BCFE33D9F # GUID to search for shortcuts used to start programs
+```
+Note: All UserAssist registry data is encoded with [ROT13](https://rot13.com/) (link to decode)
+
+## Windows Background Activity Moderator (BAM)
+Windows service that controls activity of background apps (only windows 10 version 1709 and after)
+This registry holds the path to the executable
+
+Version 1809* (Windows Build 10.0.17763) and newer:
+```
+HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\bam\State\UserSettings
+```
+
+Version 1803* (Windows Build 10.0.17134) and below:
+```
+HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\bam\UserSettings
+```
+
+*Note: you can get windows version by running 
+(cmd):
+```
+systeminfo
+```
+or (powershell):
+```
+get-computerinfo | select osname, osversion
+```
+Grabs all processes in a BAD FORMAT (there might be a better command but I have no clue
+```
+Get-ItemProperty "REGISTRY::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\bam\UserSettings\*\"
+```
+
+## Recycle Bin
+
+```
+C:\$Recycle.bin
+```
+
+Contains folder's for each SID
+
+Format:
+- `$RXXXXXX` - content of deleted file
+- `$IXXXXXX` - original path and name
+
+## Prefetch
+Files created when a program is first run and persist between restarts (limit of 1024 files on Win10 and 128 on Win7)
+
+- Prefetch stores the last 8 execution times
+```
+C:\Windows\Prefetch
+```
+
+## Jump Lists
+Stores:
+- First execution time
+- Creation Time
+- Last Execution
+- Modification time
+
+```
+C:\Users\<SID>\AppData\Roaming\Microsoft\Windows\Recent
+```
+
+Get All Unique lines in Jump List
+```
+Get-ChildItem 'C:\Users\*\AppData\Roaming\Microsoft\Windows\Recent\AutomaticDestinations\*' | foreach-object {strings $_.fullname} | Sort-Object | Get-Unique
+```
+
+## Recent Files
+1.tracks the last 150 files and folders opened
+
+2.holds path, entry, and modification time
+```
+HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs
+
+HKEY_USERS\<SID>\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs
+```
+
+- GET ALL RECENT FILES:
+```
+Get-Item "REGISTRY::HKEY_USERS\*\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs\.txt" | select -Expand property | ForEach-Object {
+    [System.Text.Encoding]::Default.GetString((Get-ItemProperty -Path "REGISTRY::HKEY_USERS\*\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs\.txt" -Name $_).$_)
+}
+```
+
+## Browser Artifacts
+
+- Chrome (URL history, current session/tabs, top sites):
+```
+C:\Users\<USER>\AppData\Local\Google\Chrome\User Data\Default\history
+```
+
+## Auditing
+
+```
+Rt click <file> on the desktop > Properties > Security > Advanced > Auditing > Continue > Add > Select a Principle > Type <username> (andy.dwyer) > Check Names > Ok >  Full Control > Ok > Apply > Ok
+```
+more review needed
+
+## Viewing Windows Events
+
+- Windows Events Registry Key
+```
+HKEY_LOCAL_MACHINE\SECURITY\Policy\PolAdtEv
+```
+
+### Method 1: EventViewer GUI
+run in cmd to open the application
+```
+eventvwr
+```
+### Method 2: Powershell
+log viewer:
+```
+Get-Eventlog
+Get-WinEvent
+```
+
+### Method 3: CMD
+log viewer:
+```
+wevutil
+```
+
+Audity policy viewing and editing:
+```
+auditpol
+```
+more research needed
+
+### Common Event Codes
+
+| Name | ID | Level | EventLog |
+| ---- | -- | ----- | -------- |
+| Account Lockouts | 4740 | Informational | Security |
+| User Added to Privileged Group | 4728, 4732, 4756 | Informational | Security |
+| Security-Enabled group Modification | 4735 | Informational | Security |
+| Successful User Account Login | 4624 | Informational | Security |
+| Failed User Account Login | 4625 | Informational | Security |
+| Account Login with Explicit Credentials | 4648 | Informational | Security |
+| Event Log was Cleared | 104 | ----- | -------- |
+| Audit Log was Cleared | 1102 | ----- | Security |
+| System audit policy was changed | 4719 | ----- | -------- |
+| PS Module Logging (Command Execution) | 4103 | ----- | -------- |
+| PS Script-Block Logging (Script Execution) | 4104,4105,4106 | ----- | -------- |
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+#################Powershell_Profiles############################
+# Powershell Profiles
+
+These save Powershell settings for users and systems and can be used to establish **persistence**
+
+## Locations
+
+### All Users, All Hosts
+```
+$PsHome\Profile.ps1
+```
+### All Users, Current Host
+```
+$PsHome\Microsoft.PowerShell_profile.ps1
+$PsHome\Microsoft.PowerShellISE_profile.ps1 # For Powershell ISE
+```
+### Current Users, All Hosts
+```
+$Home\[My]Documents\Profile.ps1
+```
+### Current User, Current Host
+```
+$Home\[My ]Documents\WindowsPowerShell\Profile.ps1
+$Home\[My]Documents\WindowsPowerShell\Microsoft.PowerShellISE_profile.ps1 # For Powershell ISE
+```
+
+## Enumerations
+
+```
+Test-Path -Path $profile.currentusercurrenthost
+```
+This tests whether the profile has been created or not
+
+
+can replace with:
+```
+ $profile.currentUserAllHost
+```
+```
+ $profile.AllUsersAllHosts
+```
+or
+```
+ $profile.AllUserscurrentHost
+ ```
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+###########Processes_and_Services############
+# Windows Process and Service Searching via Terminal
+
+## get-process and get-service (use get-ciminstance command whenever possible)
+
+`get-process` grabs a table of all processes (similar to `tasklist`), get-process does NOT show Parent Process ID (PPID), instead use `get-ciminstance win32_process`
+
+similarly `get-service` grabs a table of all services sorted by name
+
+### Syntax
+
+```
+get-process [-name "explorer,otherprocess,searchprocess"] [-Id "12345"]
+get-service [-name "explorer,otherprocess,searchprocess"]
+```
+- `-name` this searches the processes for strings, to specify multiple search processes use a comma to delimit them
+- `-Id` searches for a specific process Id (note: it may be easier to sort get-process by process Id instead) THIS DOES NOT WORK WITH get-service
+
+### Examples
+
+```
+get-process | sort-object -property Id
+```
+This grabs all processes and sorts them by process ID
+
+```
+(get-process -Id "12345").modules
+```
+This grabs all attached modules and DLLs to a process
+
+```
+get-process -Name "myprocess" | select *
+get-service -Name "myservice" | select *
+```
+This grabs all available information about a specific process or service
+
+```
+get-service | where-object {$_.Statues -cmatch "Running"}
+```
+This grabs all services that are running (Note: this is not relevant for processes as everthing provided by get-process and get-ciminstance is already running)
+
+## get-ciminstance win32_process or get-ciminstance win32_service
+
+`get-ciminstance win32_process` is similar to get-process with the benefit of being able to view Parent Process ID (PPID)
+
+`get-ciminstance win32_service` is similar to the win32_process variant
+
+### Syntax
+
+```
+get-ciminstance win32_process
+get-ciminstance win32_service
+```
+
+### Examples
+
+```
+get-ciminstance win32_process | select ProcessID,Name,ParentProcessID | sort processID
+```
+Grabs a table of all process IDs, Names, and Parent Process IDs (PPID) and then sorts by processID
+
+```
+get-ciminstance win32_process | where-object {$_.Name -match "myprocess"} | select *
+get-ciminstance win32_service | where-object {$_.Name -match "myservice"} | select *
+```
+Grabs all information for a process or service with a specified name
+
+## Sysinternals tools
+
+# Process and Service searching via GUI
+`services.msc` a gui to view running services
+
+# Process Persistence
+
+## Net Start
+
+`net-start` provides a list of all processes running at start up
+
+## Get-ScheduledTask
+
+`Get-ScheduledTask` grabs all scheduled processes 
+
+# Networking
+
+## netstat
+
+`netstat` is a CMD command that provides a status of all ports on the machine, the powershell equivalent is `Get-NetTCPConnection`
+
+Note: since this is a CMD command so it only returns an array of strings and not an object, any further filtering must done via regex
+
+### syntax
+
+`netstat -ano`
+- `-a` shows all ports
+- `-n` displays addresses in numerical form
+- `-o` displays the process responsible for each connection or listening port
+- `-p "TCP"` shows all TCP connections and listening ports (you can also search for UDP)
+
+## Get-NetTCPConnection or Get-Net
+
+`Get-NetTCPConnection` is a powershell command that provides a status of all ports on the machine
+
+### Syntax
+
+`Get-NetTCPConnection`
+- `-State "Closed"` searches for all TCP connections with a state of closed, can also search for "Listen", "Established", etc
+
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+#########Registry############
+# Commands
+
+## reg query (CMD and powershell)
+Allows full access to the registry
+```
+reg query '<registy_path>`
+```
+
+## get-childitem (powershell)
+Allows the use of wildcards to specify multiple paths. Limited when trying to access restricted registries such as HKLM\Security
+```
+get-childitem -force 'registry::<registry_path>' 2>$null
+```
+
+### example
+```
+get-childitem -force 'registry::HKU\*\Software\Microsoft\Windows\CurrentVersion\Run
+```
+grabs all user's persistent programs
+
+## Persistence
+```
+HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run
+```
+```
+HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run
+```
+```
+HKEY_USER\<SID>\Software\Microsoft\Windows\CurrentVersion\Run
+```
+```
+HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services
+```
+Note: run `services.msc` to view running services and search for malicious services
+
+User Startup folder:
+```
+%AppData%\Microsoft\Windows\Start Menu\Programs\StartUp
+C:\User\<User>\AppData\Microsoft\Windows\Start Menu\Programs\StartUp
+```
+Shared Startup folder: 
+```
+C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup
+```
+
+## Microsoft Edge URL History
+```
+HKEY_CLASSES_ROOT\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppContainer\Storage\microsoft.microsoftedge_8wekyb3d8bbwe\Children\001\Internet Explorer\DOMStorage
+```
+
+## USB History
+```
+HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Enum\USB
+HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Enum\USBSTOR
+```
+## MRU (Most Recently Used) history
+```
+HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\ComDlg32\OpenSavePidlMRU
+```
+
+## Recent Files
+```
+HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs
+```
+
+## Windows User Profiles
+```
+HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList
+```
+Note: to get account names and their SIDs side-by-side run the powershell command:
+
+`Get-Wmiobject win32_useraccount | Format-Table Name, SID`
+
+
+## Network Profiles (history of wifi connections)
+```
+HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkList\Profiles
+```
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+# Downloading Sysinternals
+
+## Recommended Method (download and unzip)
+
+- Step 1: downloading sysinternals.zip
+  - CMD  
+  ``` 
+  Invoke-WebRequest "https://download.sysinternals.com/files/SysinternalsSuite.zip"
+  ```
+  (Powershell)
+  - Or enter the url 
+  ```
+  https://download.sysinternals.com/files/SysinternalsSuite.zip
+  ```
+   into a web browser and the file will be downloaded automatically
+- Step 1.5: Moving zipfile to another machine (if neccessary)
+  - Moving the zipfile to another machine:
+```
+> scp <file_to_send> <remote_ip>:<where_to_send_file>
+> scp SysinternalsSuite.zip 10.X.X.X:/Users/<user>/AppData/Local/Microsoft/WindowsApps
+```
+  - Grabbing the zipfile from another machine:
+```
+> scp <remote_ip>:<path_to_file> <where_to_send_file>
+> scp 10.X.X.X:/Home/<user>/Downloads/SysinternalsSuite.zip /Users/<user>/AppData/Local/Microsoft/WindowsApps
+```
+  - Upload via MobaXTerm (open a ssh session to the target machine and use the green up arrow in the file manager window on the left to upload a file)
+- Step 2: File Placement
+  - Ideally the file should be placed in:
+  ```
+  C:\Users\<user>\AppData\Local\Microsoft\WindowsApps
+  ```
+   (this allows you to run these programs without being in this directory)
+  - This can be done by running:
+    ```
+    move SysinternalsSuite.zip "C:\Users\<user>\AppData\Local\Microsoft\WindowsApps"
+    ```
+    (CMD and Powershell)
+- Step 2: unpacking zipfile
+  - (Powershell)
+  ```
+  Expand-Archive SysinternalsSuite.zip .
+  ``` 
+  - Or extract all via the file explorer gui
+
+## Alternative Method (share drive)
+
+- Step 1: Link sysinternals tool to drive
+  - (cmd or powershell)
+  ```
+  net use * http://live.sysinternals.com 
+  ```
+- Step 2: change directory to Z drive to access and run programs
+  - 
+  ```
+  cd Z:\
+  ```
+Note: this will not work if you are not in the Z drive or if the machine does not have access to the internet.
+
+# Command Syntax
+
+### Strings
+grabs all valid ascii characters from a file and writes them to the console
+
+```
+Strings <infile> -accepteula
+```
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+
+
+
+
+
+
+
