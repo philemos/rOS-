@@ -1,0 +1,329 @@
+# BIOS Files (when using GRUB)
+- `boot.img` located in first 440 bytes of MBR
+- `core.img` between bootstrap and first partition
+- `/boot/grub/i386-pc/normal.mod` loads grub menu and reads:
+- `/boot/grub/grub.cfg` display all linux kernels avaliable to load
+
+# UEFI Files
+- `grubx64/efi` located in EFI partition or `/boot`
+- `/boot/grub/i386-pc/normal.mod` loads grub menu and reads:
+- `/boot/grub/grub.cfg` display all linux kernels avaliable to load
+
+
+# Viewing and Copying Drives
+
+- `lsblk` list blocks
+
+## dd (Data Duplicator)
+A command to copy binary data
+
+### Syntax
+```
+dd if=<infile> of=<outfile> ibs=1 [skip=<skip-bytes>] [count=<length>]
+```
+- `if=` specifies the input file (a drive can be specified)
+- `of=` specifies the output file (a drive can be specified)
+- `ibs=` specifies the bytes to count by (for skip and count), it is recommended to set this as 1
+- `skip=` skips bytes when reading based on: (skip * ibs) = bytes to skip 
+- `count` the number of bytes to read after skipping based on: (count * ibs) = bytes and then writes said bytes to the outfile
+
+### Examples
+
+```
+dd if=/dev/sda of=outfile ibs=1 skip=512 count=16
+```
+This command reads the binary file `/dev/sda` it skips the first 512 bytes or goes to offset 0x200 and grabs 16 bytes of data. The program then writes the 16 bytes to the file 'outfile'
+
+```
+dd if=testmbr of=hinaryfile ibs=16 skip=4 count=1
+```
+This command reads the binary file `testmbr` it skips the first 64 bytes (4 * 16) or goes to offset 0x40 and grabs 16 bytes (1 * 16) of data. The program then writes the 16 bytes to the file 'binaryfile'
+
+- `xxd` gives a hexdump of the drive, I.E: `sudo xxd -l 512 -g 1 /dev/vda` gets a hexdump of the first 512 bytes of /dev/vda 
+- `dd` copy or write drive information
+
+## Modules
+- `ltrace -S lsmod` get all imported modules
+
+
+
+
+
+
+Linux Boot Bits and bytes 4
+Execute : sudo cat /dev/vda | xxd -l 32 -c 0x10 -g 1
+
+What are the values contained in hex positions 0x00000001 through 0x00000008?
+
+Flag format: Value,Value,Value,...
+
+Machine: For this challenge: Minas_Tirith (ssh from Admin_Station)
+63, 90, 8e, d0, 31, e4, 8e, d8
+
+
+
+Linux Boot MBR3
+The file /home/bombadil/mbroken is a copy of an MBR from another machine.
+
+Hash the first partition of the file using md5sum. The flag is the hash.
+dd bs=1 skip==446 count=16 if=mbroken of=linuxsucks
+md5sum linuxsucks
+2a5948fad4ec68170b23faaa2a16cef8
+
+
+Linux Boot MBR4
+The file /home/bombadil/mbroken is a copy of an MBR from another machine.
+
+You will find the "word" GRUB in the output, hash using md5sum.
+
+The flag is the entire hash.
+dd bs=1 skip=392 count=4 if=mmbroken of=linuxsucks
+md5sum linuxsucks
+
+# Persistance Locations
+
+| name | path | enumeration command |
+| - | - | - |
+| sbin init | ??? | ??? |
+| etc init | `/etc/init.d` | `cat /etc/init.d/* \| grep "searchkey"` |
+| init.tab | I think its a sysV thing | |
+| runlevels | `/etc/rc<#>.d/` | `cat /etc/rc*.d/* \| grep "searchkey"` |
+| System Wide profile | `/etc/profile.d` `/etc/bash.bashrc` |
+| User Specific profile | `~/.bash_profile` `~/.bashrc`  | `cat /home/*/.bash* \| grep "hello"`
+| cron | `/etc/crontab/` `/etc/cron.d/` `/var/spool/cron/` | `cat /etc/crontab` `/etc/cron.d/*` |
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+## Find a file by filename 
+```
+find / -name "*filename*" 2>/dev/null
+```
+
+## Find hidden Files
+```
+find / -type f 2>/dev/null | grep "/\."
+```
+
+## Find a file by contents
+```
+find / -type f -exec grep "searchtext" {} 2>/dev/null \;
+```
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+# Who Creates log
+- `syslog` daemon
+  - Default on all linux machines
+  - Defined in [RFC 5425](https://tools.ietf.org/html/rfc5424)
+- `journald` daemon
+  - Unique to certain distros
+
+# Paths to Know
+| descriptor | Path | Notes |
+| :--- | ---- | ----- | 
+| Syslog config files | `/etc/rsyslog.d/` | |
+| Default log location | `/var/log/` | most logs are in /var/log, all logs are in /var |
+| | | |
+| ----- | Authentication | ----- |
+| Authentication | /var/log/auth.log | |
+| Logged in Users | /var/run/utmp | NOTE: this is not in a human readable format, use the `last` command to read it |
+| History of utmp | /var/log/wtmp | NOTE: this is not in a human readable format, use the `last` command to read it |
+| ----- | Application | ----- |
+| ----- | System | ----- |
+| Legacy Catch all | /var/log/messages | |
+| Ubuntu/Debian Catch all | /var/log/syslog | |
+| Device Messenger | run `dmesg` | This queries /proc/kmsg |
+
+# Syslog Formatting
+
+### Syslog Codes
+| Code | [Facility](https://en.wikipedia.org/wiki/Syslog#Facility) | [Severity](https://en.wikipedia.org/wiki/Syslog#Severity_level) |
+| ---- | -------- | -------- |
+| 0 | kernel messages | Emergency |
+| 1 | user-level messages | Alert |
+| 2 | mail system | Critical |
+| 3 | system daemons | Error |
+| 4 | security/authorization messages | Warning |
+| 5 | messages made by syslogd | Notice |
+| 6 | line printer subsystem | Informational |
+| 7 | network news subsystem | Debug |
+| 8 	| uucp 	| |
+| 9 	| cron 	| |
+| 10 	| authpriv 	| |
+| 11 	| ftp 	| |
+| 12 	| ntp 	| |
+| 13 	| security 	| |
+| 14 	| console 	| |
+| 15 	| solaris-cron 	| |
+| 16–23 	| local0 – local7 	| |
+
+### Entry Formatting
+`facility.severity /path/to/log/location`
+
+
+`facility.severity @@X.X.X.X:Port` (see syntax for difference between `@` and `@@`)
+
+
+### [Syntax](https://man7.org/linux/man-pages/man5/rsyslog.conf.5.html)
+- Severity
+  - `=` means only this severity
+  - `!` means exclude this and any higher severities
+  - `!=` means exclude only this severity
+- Path
+  - `-` enables syncing (I.E: `-/var/log/messages`)
+  - `@` forward logs to a specified IP and port via UDP
+  - `@@` forward logs to a specified IP and port via TCP
+
+### Examples
+```
+0.* /var/log/test
+```
+Logs all kernel messages of any severity to /var/log/test
+
+```
+*.4 /var/log/test
+```
+Logs messages from any facility of severity Warning and higher (Warning, Error, Critical, Alert, and Emergency) to /var/log/test
+
+```
+2.!2
+```
+Logs messages from mail system of severity Error and lower (Error,Warning,Notice,Informational,Debug) to /var/log/test
+
+# Using XPATH (reading XML)
+XPATH is a linux command and tool to parse through .XML files and grab the desired values. Essentially regex for XML files
+
+testing tool: [xpather](http://xpather.com/) (similar to regex101)
+
+### [Syntax](http://www.whitebeam.org/library/guide/TechNotes/xpath.rhtm)
+```
+xpath -q -e `//path/to/the/element/@theattribute` <searchfile>
+```
+- `-q` quiet output, removes unneccessary output
+- `-e` required before an expression
+- `//` this is the start to an expression
+  - `path/to/element`
+
+### Examples
+```
+xpath -q -e '//host/address/@addr' output.xml
+```
+grabs all ips from the nmap xml file
+
+```
+xpath -q -e '//host/address/@addr | //host/ports/port/@portid' output.xml
+```
+grabs all ips and portids from the nmap xml file
+
+```
+xpath -q -e '//host/ports/port/@portid | //host/ports/port/@portid/../../../address/@addr' output.xml
+```
+This grabs all ips with open ports and all ports
+
+this is pretty complicated and a bit inefficient so lets delve into it:
+- `//host/ports/port/@portid` grabs all the port ids
+- `//host/ports/port/@portid/../../../address/@addr` So what this does is try to go to the portid element then goes back up to grab the address (this means that it will fail if portid would fail)
+
+
+# Using JQ (JSON Query)
+JQ is a linux command and tool to parse through .JSON files and grab the desired information. Essentially regex for JSON files
+
+- [Cheat Sheet](https://cheat.sh/jq)
+
+### Examples
+
+
+```
+cat conn.log | jq .
+```
+prints a JSON file in "pretty" print
+
+```
+cat conn.log | jq '."id.orig_h"' | sort -u | wc -l
+```
+read a file, grab the "id.orig_h" element and grab the count of unique lines
+
+```
+cat conn.log | jq 'select(.resp_bytes >= 40).ts' | wc -l # select the ts line from all blocks where "resp_bytes" >= 40 and gets the count
+cat conn.log | jq '.resp_bytes >= 40' | grep "true" |wc -l # gets boolean values for each resp_bytes value, filters out falses and gets the count
+```
+grabs the count of lines where resp_bytes is greater than or equal to 40
+
+```
+cat conn.log | 
+```
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+# Live Process Viewing
+
+### htop (recommended)
+
+Pretty view of live processes, use F1-10 keys to modify display. (Use F2 then go to columns to add PPID)
+
+### top (basic cmd)
+
+A worse version of htop, may work on less advanced systems
+
+
+# Identifying Orphans
+
+Orphan life-cycle
+1. Start with a parent with a high PPID
+2. Parent process dies
+3. Process becomes batman
+4. Process gets PPID of 1 (init)
+
+Note: If you are using the tree view the process will fall under `/home/orphan`
+
+# Search for a process manually
+```
+ps -elf | grep "searchname"
+```
+
+# Systemd
+
+Common with more modern operating systems and uses `systemctl` for service management
+
+
+### Syntax
+```
+systemctl <action> <service>
+```
+Actions: `list-units [-all]`, `start`, `stop`
+
+# SysV
+
+Older service management system that uses the `service` command
+
+### Syntax
+```
+service <service> <action>
+```
+Actions: `status`, `start`, `stop`, `restart`
+
+# File Handles and Descriptors
+
+### lsof
+```
+sudo lsof -c <process>
+```
+List all open files for a specific process
+
+### Format
+| COMMAND | PID | USER | FD | TYPE | DEVICE | SIZE/OFF | NODE | NAME |
+| :------ | ----- | -------- | --- | ---- | -------- | ------------ | --------| ----------------------|
+| sshd | 1963 | student | 0u | CHR | 1,3 | 0t0 | 1028 | /dev/null |
+| sshd | 1963 | student | 1u | CHR | 1,3 | 0t0 | 1028 | /dev/null |
+| sshd | 1963 | student | 2u | CHR | 1,3 | 0t0 | 1028 | /dev/null |
+| sshd | 1963 | student | 3u | IPv4 | 12124 | 0t0 | TCP | *:ssh (LISTEN) |
+| sshd | 1963 | student | 4u | IPv6 | 12126 | 0t0 | TCP | *:ssh (LISTEN) |
+
+FD:File descriptor, shows permissions. u = read & write, r = read, and w = write.
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
